@@ -249,9 +249,8 @@ def main():
 
         if ultimopedido != inicial:
             print("Novo pedido detectado! Fazendo alterações...")
-            #MudarPedidoVendaOmie(ultimopedido)
+            MudarPedidoVendaOmie(ultimopedido)
             inicial = copy.deepcopy(ultimopedido)
-            break
 
         time.sleep(20)
 
