@@ -1,38 +1,120 @@
 import functions, env, time, copy
 from datetime import datetime
 
-#ploomesEndpoint = "https://api2.ploomes.com/Products?$top=10&$skip=10"
-#ploomesEndpoint2 = "https://public-api2.ploomes.com/Fields?$filter=EntityId+eq+1+and+Dynamic+eq+true+and+TypeId+eq+7&$expand=Type($select=NativeType)&$select=Name,Key,Type"
-
 def ListarPedidosOmie(N=100):
 
-    """
+    '''
     Função com o objetivo de Listar os N primeiros pedidos da conta Omie em ordem decrescente, ou seja,
     os pedidos mais recentes serão os primeiros da lista retornada.
 
     A função retorna um dicionário contendo os N pedidos. Os pedidos em sí estão contidos na chave 'pedido_venda_produto',
     que é uma lista de tamanho N na qual cada elemento é um dos pedidos.
-    """
+    '''
 
     # Parâmetros para requisição
+
     endpoint = "https://app.omie.com.br/api/v1/produtos/pedido/" 
     call = "ListarPedidos"
     param = [{
             "pagina":1,
             "registros_por_pagina":N,
             "apenas_importado_api":"N",
-            "ordem_descrescente": "S"
+            "ordem_descrescente": "S" # Sim, a Omie colocou de"S"crescente por algum motivo
         }]
 
-    pedidos = functions.postOmie(endpoint,env.app_key_ES,env.app_secret_ES,call,param)
+    # Tratamento de erros na requisição
 
+    try:
+        pedidos = functions.postOmie(endpoint,env.app_key_ES,env.app_secret_ES,call,param)
+
+        if "Max retries exceeded" in pedidos:
+            print("\n Possivel problema de conexão encontrado, aguardando e tentando novamente...")
+            time.sleep(50)
+            pedidos = functions.postOmie(endpoint,env.app_key_ES,env.app_secret_ES,call,param)
+            if "Max retries exceeded" in pedidos:
+                print("\n Listagem de pedidos Omie falhou! Verifique sua conexão com a internet")
+                return -1
+            elif 'Bad Data from Server' in pedidos or 'HTTP error occurred' in pedidos:
+                print("\n Erro de requisição encontrado!")
+            else:
+                print("\n Sucesso! Pedidos Omie listados")
+            
+        elif 'Bad Data from Server' in pedidos or 'HTTP error occurred' in pedidos:
+            print("\n Erro de requisição encontrado! Tentando novamente...")
+            time.sleep(50)
+            pedidos = functions.postOmie(endpoint,env.app_key_ES,env.app_secret_ES,call,param)
+            if 'Bad Data from Server' in pedidos or 'HTTP error occurred' in pedidos:
+                print("\n Listagem de pedidos Omie falhou!")
+                return -1
+            else:
+                print("\n Sucesso! Pedidos Omie listados")
+    except:
+        print("\n Erro de requisição! Tentando novamente...")
+
+        try:
+            time.sleep(30)
+            pedidos = functions.postOmie(endpoint,env.app_key_ES,env.app_secret_ES,call,param)
+            
+            if "Max retries exceeded" in pedidos:
+                print("\n Possivel problema de conexão encontrado, aguardando e tentando novamente...")
+                time.sleep(50)
+                pedidos = functions.postOmie(endpoint,env.app_key_ES,env.app_secret_ES,call,param)
+                if "Max retries exceeded" in pedidos:
+                    print("\n Listagem de pedidos Omie falhou! Verifique sua conexão com a internet")
+                    return -1
+                else:
+                    print("\n Sucesso! Pedidos Omie listados")
+            elif 'Bad Data from Server' in pedidos or 'HTTP error occurred' in pedidos:
+                print("\n Erro de requisição encontrado! Tentando novamente...")
+                time.sleep(50)
+                pedidos = functions.postOmie(endpoint,env.app_key_ES,env.app_secret_ES,call,param)
+                if 'Bad Data from Server' in pedidos or 'HTTP error occurred' in pedidos:
+                    print("\n Listagem de pedidos Omie falhou!")
+                    return -1
+                else:
+                    print("\n Sucesso! Pedidos Omie listados")             
+        except:
+            print("\n Listagem de pedidos Omie falhou por problemas de requisição!")
+            return -1
+
+    # Tratamento de erros na resposta da Omie
+
+    if 'faultstring' in pedidos:
+        print("\n Requisição Omie precisa ser refeita, aguarde...")
+        time.sleep(30)
+        pedidos = functions.postOmie(endpoint,env.app_key_ES,env.app_secret_ES,call,param)
+        if 'faultstring' not in pedidos:
+            print("\n Sucesso! Pedidos Omie listados")
+            return pedidos
+        else:
+            print("\n Tentativa final de requisição Omie, aguarde...")
+            time.sleep(40)
+            pedidos = functions.postOmie(endpoint,env.app_key_ES,env.app_secret_ES,call,param)
+            if 'faultstring' not in pedidos:
+                print("\n Sucesso! Pedidos Omie listados")
+                return pedidos     
+            else:
+                print("\n Listagem de pedidos Omie falhou por erros na resposta da Omie!")
+                return -1
+    
     return pedidos
 
 def ListarPedidosPloomes(N=50):
 
     ListarPedidosPloomes = "https://api2.ploomes.com/Orders?$orderby=OrderNumber+desc&$expand=OtherProperties&$top="+str(N)
 
-    pedidosPloomes = functions.getPloomes(ListarPedidosPloomes,env.ploomes_api_key)['value']
+    try:
+        pedidosPloomes = functions.getPloomes(ListarPedidosPloomes,env.ploomes_api_key)['value']
+
+    except:
+        print("\n Erro na listagem de pedidos Ploomes, tentando novamente...")
+        time.sleep(45)
+        try:
+            pedidosPloomes = functions.getPloomes(ListarPedidosPloomes,env.ploomes_api_key)['value']
+            print("\n Sucesso! Pedidos Ploomes listados")
+        except:
+            print("\n Listagem de pedidos Ploomes falhou!")
+            return -1
 
     return pedidosPloomes
 
@@ -58,13 +140,14 @@ def AlterarPedidoVendaOmie(req=dict):
     return print("\n", alterado)
 
 def MudarPedidoVendaOmie(ped, nOmie=100):
-    """
+    '''
     Altera determinado pedido na Omie para utilização com a Ploomes.
     
     A função retorna um print do status obtido da Omie pela requisição HTTP feita.
-    """
+    '''
 
     # Verificações básicas para garantir que o pedido pode ser alterado
+
     if 'id' not in ped:
         return print("\n AVISO: Pedido não alterado, é necessário campo de integração!")
 
@@ -72,12 +155,33 @@ def MudarPedidoVendaOmie(ped, nOmie=100):
         return print("\n AVISO: Pedido não alterado, é necessário campo de integração!")
 
     # Lista pedidos da Omie
+
     pedidosOmie = ListarPedidosOmie(nOmie)
 
+    # Tratamento de erros na listagem Omie
+
+    if pedidosOmie == -1:
+        print("Erro nos pedidos Omie, tentando novamente...")
+        time.sleep(30)
+        pedidosOmie = ListarPedidosOmie(nOmie)
+        if pedidosOmie == -1:
+            print("ERRO: Não foi possível listar os pedidos Omie!")
+            return -1
+
     # Encontrando o pedido específico
+
+    pedido = -1
+
     for i in range(len(pedidosOmie['pedido_venda_produto'])):
         if pedidosOmie['pedido_venda_produto'][i]['cabecalho']['codigo_pedido'] == ped['id']['integracao']:
             pedido = pedidosOmie['pedido_venda_produto'][i]
+            break
+
+    # Tratamento de pedido não encontrado
+    
+    if pedido == -1:
+        print("AVISO: Pedido não encontrado nos pedidos Omie. Você pode tentar aumentar o tamanho de pedidos para encontrá-lo.")
+        return -1
 
     # Retira partes do pedido que impedem a requisição caso não estejam preenchidas
 
@@ -99,6 +203,7 @@ def MudarPedidoVendaOmie(ped, nOmie=100):
     pedido_original = copy.deepcopy(pedido) # Cópia para monitorar mudanças no pedido
 
     # Altera informações no pedido
+
     if 'obs' in ped:
         if ped['obs'] != '':
             pedido['informacoes_adicionais']['dados_adicionais_nf'] = ped['obs']
@@ -123,10 +228,13 @@ def MudarPedidoVendaOmie(ped, nOmie=100):
     else:
         print("\n AVISO: Dados adicionais item e obs item não alterados!")
 
+    # Verificação de mudanças no pedido para alteração
+
     if pedido != pedido_original:
         return AlterarPedidoVendaOmie(pedido) 
     else:
-        return print("AVISO: Pedido não alterado, informações para mudança não encontradas!")
+        print("AVISO: Pedido não alterado, informações para mudança não encontradas!")
+        return -1
 
 def MontaCampos(campo, obs, listafinal, listaindex, pedido):
 
@@ -152,8 +260,16 @@ def MontaCampos(campo, obs, listafinal, listaindex, pedido):
         listafinal[listaindex]['espec'] = []
         listafinal[listaindex]['id'] = {'integracao':int(campo['StringValue']), 'idPloomes':[campo['OrderId'], pedido['OrderNumber']], 'numero_pedido_omie':''}
         ItensPloomes += str(campo['OrderId']) # criação da url para pegar os produtos do id específico
-        itens = functions.getPloomes(ItensPloomes,env.ploomes_api_key)['value']
-
+        try:
+            itens = functions.getPloomes(ItensPloomes,env.ploomes_api_key)['value']
+        except:
+            print("\n Erro na requisição dos itens do pedido" + str(pedido['OrderNumber']) + "," + " tentando novamente...")
+            time.sleep(30)
+            try:
+                itens = functions.getPloomes(ItensPloomes,env.ploomes_api_key)['value']
+            except:
+                print("\n ERRO: itens do pedido"+str(pedido['OrderNumber'])+" não encontrados.")
+            
         for item in itens: # pega todas as descrições dos itens
             for k in range(len(item['OtherProperties'])):
                 if item['OtherProperties'][k]['FieldId'] == 10204576:
@@ -167,7 +283,28 @@ def mapearPedidos(nPloomes = int, nOmie = int, mapearpedidosOmie = True):
     print("\n"+"Mapeando pedidos...")
     
     pedidosOmie = ListarPedidosOmie(nOmie)
+
+    # Tratamento de erro na listagem de pedidos Omie
+
+    if pedidosOmie == -1:
+        print("\n Erro nos pedidos Omie, tentando novamente...")
+        time.sleep(30)
+        pedidosOmie = ListarPedidosOmie(nOmie)
+        if pedidosOmie == -1:
+            print("\n ERRO: Não foi possível listar os pedidos Omie!")
+            return -1
+
     pedidosPloomes = ListarPedidosPloomes(nPloomes)
+
+    # Tratamento de erro na listagem de pedidos Ploomes
+
+    if pedidosPloomes == -1:
+        print("\n Erro nos pedidos Ploomes, tentando novamente...")
+        time.sleep(30)
+        pedidosPloomes = ListarPedidosPloomes(nPloomes)
+        if pedidosPloomes == -1:
+            print("\n ERRO: Não foi possível listar os pedidos Ploomes!")
+            return -1
 
     listafinal = []
     listaindex = 0
@@ -228,9 +365,11 @@ def mapearPedidos(nPloomes = int, nOmie = int, mapearpedidosOmie = True):
 
 def main():
 
-    inicial = mapearPedidos(3, 100)[0]
+    #inicial = mapearPedidos(3, 100)[0]
+    ListarPedidosOmie(3)
+    ListarPedidosPloomes(3)
 
-    if 'id' in inicial:
+    '''if 'id' in inicial:
         if 'idPloomes' in inicial['id']:
             print("\n Último pedido:", inicial['id']['idPloomes'][1])
     else:
@@ -247,12 +386,12 @@ def main():
         else:
             print("\n Último pedido (sem integração):", ultimopedido)
 
-        if ultimopedido != inicial:
+        if ultimopedido != inicial and 'id' in ultimopedido:
             print("Novo pedido detectado! Fazendo alterações...")
-            MudarPedidoVendaOmie(ultimopedido)
+            #MudarPedidoVendaOmie(ultimopedido)
             inicial = copy.deepcopy(ultimopedido)
 
-        time.sleep(20)
+        time.sleep(20)'''
 
 main()
 
