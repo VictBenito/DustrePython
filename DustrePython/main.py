@@ -180,7 +180,7 @@ def MudarPedidoVendaOmie(ped, nOmie=100):
     # Tratamento de pedido não encontrado
     
     if pedido == -1:
-        print("AVISO: Pedido não encontrado nos pedidos Omie. Você pode tentar aumentar o tamanho de pedidos para encontrá-lo.")
+        print("AVISO: Pedido não encontrado nos pedidos Omie. Você pode tentar aumentar o tamanho de pedidos Omie para encontrá-lo.")
         return -1
 
     # Retira partes do pedido que impedem a requisição caso não estejam preenchidas
@@ -365,11 +365,9 @@ def mapearPedidos(nPloomes = int, nOmie = int, mapearpedidosOmie = True):
 
 def main():
 
-    #inicial = mapearPedidos(3, 100)[0]
-    ListarPedidosOmie(3)
-    ListarPedidosPloomes(3)
+    inicial = mapearPedidos(3, 100)[0]
 
-    '''if 'id' in inicial:
+    if 'id' in inicial:
         if 'idPloomes' in inicial['id']:
             print("\n Último pedido:", inicial['id']['idPloomes'][1])
     else:
@@ -388,10 +386,10 @@ def main():
 
         if ultimopedido != inicial and 'id' in ultimopedido:
             print("Novo pedido detectado! Fazendo alterações...")
-            #MudarPedidoVendaOmie(ultimopedido)
+            MudarPedidoVendaOmie(ultimopedido)
             inicial = copy.deepcopy(ultimopedido)
 
-        time.sleep(20)'''
+        time.sleep(20)
 
 main()
 
