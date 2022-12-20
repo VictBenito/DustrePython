@@ -7,7 +7,7 @@ def ListarPedidosOmie(N=100):
     Função com o objetivo de Listar os N primeiros pedidos da conta Omie em ordem decrescente, ou seja,
     os pedidos mais recentes serão os primeiros da lista retornada.
 
-    A função retorna um dicionário contendo os N pedidos. Os pedidos em sí estão contidos na chave 'pedido_venda_produto',
+    A função retorna um dicionário contendo os N pedidos ou -1, caso tenha falhado. Os pedidos em sí estão contidos na chave 'pedido_venda_produto',
     que é uma lista de tamanho N na qual cada elemento é um dos pedidos.
     '''
 
@@ -149,10 +149,12 @@ def MudarPedidoVendaOmie(ped, nOmie=100):
     # Verificações básicas para garantir que o pedido pode ser alterado
 
     if 'id' not in ped:
-        return print("\n AVISO: Pedido não alterado, é necessário campo de integração!")
+        print("\n AVISO: Pedido não alterado, é necessário campo de integração!")
+        return -1
 
     elif 'integracao' not in ped['id']:
-        return print("\n AVISO: Pedido não alterado, é necessário campo de integração!")
+        print("\n AVISO: Pedido não alterado, é necessário campo de integração!")
+        return -1
 
     # Lista pedidos da Omie
 
@@ -273,7 +275,12 @@ def MontaCampos(campo, obs, listafinal, listaindex, pedido):
         for item in itens: # pega todas as descrições dos itens
             for k in range(len(item['OtherProperties'])):
                 if item['OtherProperties'][k]['FieldId'] == 10204576:
-                    listafinal[listaindex]['espec'].append(item['OtherProperties'][k]['BigStringValue'])  
+                    stringitem = item['OtherProperties'][k]['BigStringValue']
+                    if stringitem.startswith("<p>"):
+                        stringitem = stringitem.strip("<p>")
+                    elif stringitem.startswith("&lt;p&gt;"):
+                        stringitem = stringitem.strip("&lt;p&gt;")
+                    listafinal[listaindex]['espec'].append(stringitem)
         ItensPloomes = ItensPloomes[:len(ItensPloomes)-len(str(campo['OrderId']))] # reset da url para pegar produtos de id específico
 
     return obs, listafinal
@@ -390,7 +397,7 @@ def main():
             inicial = copy.deepcopy(ultimopedido)
 
         time.sleep(20)
-
+        
 main()
 
 
